@@ -20,21 +20,22 @@ import (
 func logisticRegression(X []*mat.VecDense, y *mat.VecDense, rate float64, ntrains int) *mat.VecDense {
 	ws := make([]float64, X[0].Len())
 	for i := range ws {
-		ws[i] = rand.Float64()
+		ws[i] = (rand.Float64() - 0.5) * float64(X[0].Len()/2)
 	}
 	w := mat.NewVecDense(len(ws), ws)
 	for n := 0; n < ntrains; n++ {
 		for i, x := range X {
 			t := mat.NewVecDense(x.Len(), nil)
 			t.CopyVec(x)
-			pred := softmax(t, w)
-			perr := y.AtVec(i) - pred
+			pred := softmax(w, x)
+			perr := y.At(i, 0) - pred
 			scale := rate * perr * pred * (1 - pred)
-
 			dx := mat.NewVecDense(x.Len(), nil)
 			dx.CopyVec(x)
 			dx.ScaleVec(scale, x)
-			w.AddVec(w, dx)
+			for j := 0; j < x.Len(); j++ {
+				w.AddVec(w, dx)
+			}
 		}
 	}
 	return w
@@ -79,30 +80,15 @@ func loadData() ([][]float64, []string, error) {
 	return resultV, resultS, nil
 }
 
-func shuffle(from []*mat.VecDense) {
-	rows := len(from)
+func shuffle(xx []*mat.VecDense, yy *mat.VecDense) {
+	rows := len(xx)
 	for i := 0; i < rows; i++ {
-		j := rand.Intn(i + 1)
-		from[j], from[i] = from[i], from[j]
+		j := rand.Intn(rows)
+		xx[j], xx[i] = xx[i], xx[j]
+		vi, vj := yy.AtVec(i), yy.AtVec(j)
+		yy.SetVec(j, vi)
+		yy.SetVec(i, vj)
 	}
-}
-
-func splitRecords(src []*mat.VecDense, prop float64) ([]*mat.VecDense, []*mat.VecDense) {
-	trainingRows := make([]*mat.VecDense, 0)
-	testingRows := make([]*mat.VecDense, 0)
-	shuffle(src)
-
-	rows := len(src)
-	for i := 0; i < rows; i++ {
-		trainOrTest := rand.Intn(101)
-		if trainOrTest > int(100*prop) {
-			trainingRows = append(trainingRows, src[i])
-		} else {
-			testingRows = append(testingRows, src[i])
-		}
-	}
-
-	return trainingRows, testingRows
 }
 
 func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) {
@@ -173,10 +159,13 @@ func main() {
 	for i := 0; i < len(X); i++ {
 		X[i] = mat.NewVecDense(len(xx[i]), xx[i])
 	}
+
 	ns := vocab(yy)
 	y := onehot(yy, ns)
 
-	w := logisticRegression(X, y, 0.1, 50)
+	w := logisticRegression(X, y, 0.0001, 5000)
+
+	shuffle(X, y)
 
 	a := mat.NewVecDense(len(X), nil)
 	for i := 0; i < len(X); i++ {
@@ -190,6 +179,7 @@ func main() {
 	for i := 0; i < y.Len(); i++ {
 		v1 := int(float64(len(ns))*a.AtVec(i) + 0.1)
 		v2 := int(float64(len(ns))*y.AtVec(i) + 0.1)
+		println(a.AtVec(i), v1, v2)
 		if v1 == v2 {
 			correct++
 		}
