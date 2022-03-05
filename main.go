@@ -81,17 +81,6 @@ func loadData() ([][]float64, []string, error) {
 	return resultV, resultS, nil
 }
 
-func shuffle(xx []*mat.VecDense, yy *mat.VecDense) {
-	rows := len(xx)
-	for i := 0; i < rows; i++ {
-		j := rand.Intn(rows)
-		xx[j], xx[i] = xx[i], xx[j]
-		vi, vj := yy.AtVec(i), yy.AtVec(j)
-		yy.SetVec(j, vi)
-		yy.SetVec(i, vj)
-	}
-}
-
 func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) error {
 	p, err := plot.New()
 	if err != nil {
@@ -171,7 +160,12 @@ func main() {
 
 	w := logisticRegression(X, y, rate, epochs)
 
-	shuffle(X, y)
+	rand.Shuffle(len(X), func(i, j int) {
+		X[j], X[i] = X[i], X[j]
+		vi, vj := y.AtVec(i), y.AtVec(j)
+		y.SetVec(j, vi)
+		y.SetVec(i, vj)
+	})
 
 	a := mat.NewVecDense(len(X), nil)
 	for i := 0; i < len(X); i++ {
