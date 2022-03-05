@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -91,10 +92,10 @@ func shuffle(xx []*mat.VecDense, yy *mat.VecDense) {
 	}
 }
 
-func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) {
+func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) error {
 	p, err := plot.New()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	p.Title.Text = "Relation between length and height of iris"
@@ -113,7 +114,7 @@ func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) {
 		}
 		data, err := plotter.NewScatter(data0)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		data.GlyphStyle.Color = plotutil.Color(v)
 		data.Shape = &draw.PyramidGlyph{}
@@ -122,7 +123,7 @@ func plotData(x []*mat.VecDense, a *mat.VecDense, ns map[string]int) {
 	}
 
 	// save pict
-	p.Save(4*vg.Inch, 4*vg.Inch, "iris_predict.png")
+	return p.Save(4*vg.Inch, 4*vg.Inch, "iris_predict.png")
 }
 
 func vocab(nn []string) map[string]int {
@@ -148,6 +149,11 @@ func onehot(aa []string, nn map[string]int) *mat.VecDense {
 }
 
 func main() {
+	var rate float64
+	var epochs int
+	flag.Float64Var(&rate, "rate", 0.01, "learning rate")
+	flag.IntVar(&epochs, "epochs", 5000, "number of epochs")
+	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
 	xx, yy, err := loadData()
@@ -163,7 +169,7 @@ func main() {
 	ns := vocab(yy)
 	y := onehot(yy, ns)
 
-	w := logisticRegression(X, y, 0.0001, 5000)
+	w := logisticRegression(X, y, rate, epochs)
 
 	shuffle(X, y)
 
@@ -173,13 +179,15 @@ func main() {
 		a.SetVec(i, r)
 	}
 
-	plotData(X, a, ns)
+	err = plotData(X, a, ns)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	correct := 0
 	for i := 0; i < y.Len(); i++ {
 		v1 := int(float64(len(ns))*a.AtVec(i) + 0.1)
 		v2 := int(float64(len(ns))*y.AtVec(i) + 0.1)
-		println(a.AtVec(i), v1, v2)
 		if v1 == v2 {
 			correct++
 		}
